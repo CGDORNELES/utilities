@@ -21,7 +21,7 @@ param (
   [string]$profilefileShare,
   [string]$useraccount,
   [string]$accesskey,
-  [strung]$fileShare
+  [string]$fileShare
 )
 
 # Create a new registry key for FSLogix under SOFTWARE, ignore if it already exists

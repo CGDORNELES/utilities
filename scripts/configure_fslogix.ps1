@@ -1,7 +1,6 @@
 <#
 .SYNOPSIS
 Brief description of the function or script.
-#>
 
 .DESCRIPTION
 Detailed description of the function or script, including its purpose and functionality.
@@ -26,7 +25,7 @@ param (
   [string]$profilefileShare,
   [string]$useraccount,
   [string]$accesskey,
-  [strung]$fileShare
+  [string]$fileShare
 )
 
 $url = "https://raw.githubusercontent.com/CGDORNELES/utilities/main/scripts/ConfigureRemotingForFSLogix.ps1"
