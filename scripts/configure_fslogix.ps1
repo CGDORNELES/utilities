@@ -22,12 +22,19 @@ Additional information about the function or script, such as author, date, and v
 Related links or references.
 #>
 
+param (
+  [string]$profilefileShare,
+  [string]$useraccount,
+  [string]$accesskey,
+  [strung]$fileShare
+)
+
 $url = "https://raw.githubusercontent.com/CGDORNELES/utilities/main/scripts/ConfigureRemotingForFSLogix.ps1"
 $file = "$env:temp\ConfigureRemotingForFSLogix.ps1"
 
 (New-Object -TypeName System.Net.WebClient).DownloadFile($url, $file)
 
-powershell.exe -ExecutionPolicy ByPass -File $file -ForceNewSSLCert -EnableCredSSP -Verbose
+powershell.exe -ExecutionPolicy ByPass -File $file -ForceNewSSLCert -EnableCredSSP -Verbose -profilefileShare $profilefileShare -useraccount $useraccount -accesskey $accesskey -fileShare $fileShare
 
 Enable-WSManCredSSP -Role Server -Force
 

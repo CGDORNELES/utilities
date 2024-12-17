@@ -18,7 +18,10 @@ Date: Today's Date
 Version: 1.0
 #>
 param (
-  [string]$profilefileShare
+  [string]$profilefileShare,
+  [string]$useraccount,
+  [string]$accesskey,
+  [strung]$fileShare
 )
 
 # Create a new registry key for FSLogix under SOFTWARE, ignore if it already exists
