@@ -1,9 +1,14 @@
 import re
+import argparse
 
-input_file = "tfplan.txt"
-output_file = "tfplan_summary.md"
+# Argument parser
+parser = argparse.ArgumentParser(description="Generate a summary from a Terraform plan.")
+parser.add_argument("--input", "-i", required=True, help="Path to the input tfplan.txt file")
+parser.add_argument("--output", "-o", default="tfplan_summary.md", help="Path to save the output markdown file")
+args = parser.parse_args()
 
-with open(input_file, "r") as f:
+# Read input file
+with open(args.input, "r") as f:
     plan_text = f.read()
 
 # Count actions
@@ -56,7 +61,7 @@ lines.append(f"- **Update**: {to_update} resources")
 lines.append(f"- **Destroy**: {to_destroy} resources")
 
 # Write markdown file
-with open(output_file, "w") as f:
+with open(args.output, "w") as f:
     f.write("\n".join(lines))
 
-print(f"✅ Markdown summary saved to: {output_file}")
+print(f"✅ Markdown summary saved to: {args.output}")
