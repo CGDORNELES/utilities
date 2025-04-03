@@ -1,59 +1,55 @@
-import re
+
 import argparse
+from pathlib import Path
 
-parser = argparse.ArgumentParser(description="Generate a Markdown table summary from a Terraform/Tofu plan.")
-parser.add_argument("--input", "-i", required=True, help="Path to the input tfplan file")
-parser.add_argument("--output", "-o", default="tfplan_summary.md", help="Path to output markdown file")
-args = parser.parse_args()
+def generate_markdown(tfplan_path, output_md_path):
+    # Read the content of the tfplan file
+    content = Path(tfplan_path).read_text()
 
-with open(args.input, "r") as f:
-    content = f.read()
+    # Remove footer section
+    content = content.split("─────────────────────────────────────────────────────────────────────────────")[0].rstrip()
 
-lines = []
+    # Remove header section
+    lines = content.splitlines()
+    start_index = 0
+    for i, line in enumerate(lines):
+        if "OpenTofu will perform the following actions:" in line:
+            start_index = i + 1
+            break
+    cleaned_content = "\n".join(lines[start_index:]).strip()
 
-def extract_blocks(symbol):
-    return re.findall(rf'{re.escape(symbol)} resource "([^"]+)" "([^"]+)" {{(.*?)^  }}', content, flags=re.DOTALL | re.MULTILINE)
+    # Extract summary line
+    summary_line = [line for line in lines if line.startswith("Plan:")]
+    add_count, change_count, destroy_count = 0, 0, 0
+    if summary_line:
+        parts = summary_line[0].split(" ")
+        add_count = parts[1]
+        change_count = parts[4]
+        destroy_count = parts[7]
 
-def parse_resource_block(res_type, res_name, block):
-    name_match = re.search(r'\+ name\s+=\s+"([^"]+)"', block)
-    rg_match = re.search(r'\+ resource_group_name\s+=\s+"([^"]+)"', block)
-    loc_match = re.search(r'\+ location\s+=\s+"([^"]+)"', block)
+    # Build markdown content with summary table
+    markdown = f"""# Terraform Plan Summary
 
-    name = name_match.group(1) if name_match else res_name
-    rg = rg_match.group(1) if rg_match else "-"
-    location = loc_match.group(1) if loc_match else "-"
-    return name, res_type, rg, location
+```
+{cleaned_content}
+```
 
-def write_table(title, blocks, symbol_emoji):
-    lines.append(f"## {symbol_emoji} Resources to be *{title}* ({len(blocks)} total)\n")
-    lines.append("| Resource Name | Type | Resource Group | Location |")
-    lines.append("|---------------|------|----------------|----------|")
-    for res_type, res_name, block in blocks:
-        name, res_type_clean, rg, location = parse_resource_block(res_type, res_name, block)
-        lines.append(f"| `{name}` | `{res_type_clean}` | `{rg}` | `{location}` |")
-    lines.append("")
+## Plan Summary Table
 
-# Blocos
-created = extract_blocks("+")
-updated = extract_blocks("~")
-destroyed = extract_blocks("-")
+| 🟩 **Add**    | {add_count} resources will be added    |
+|--------------|----------------------------------------|
+| 🟨 **Change** | {change_count} resources will be changed   |
+| 🟥 **Destroy**| {destroy_count} resources will be destroyed |
+"""
 
-# Tabelas
-if created:
-    write_table("created", created, "✅")
-if updated:
-    write_table("updated", updated, "🔁")
-if destroyed:
-    write_table("destroyed", destroyed, "❌")
+    # Write to output file
+    Path(output_md_path).write_text(markdown)
+    print(f"Markdown file generated: {output_md_path}")
 
-# Sumário final
-lines.append("## 📊 Summary")
-lines.append(f"- **Create**: {len(created)} resources")
-lines.append(f"- **Update**: {len(updated)} resources")
-lines.append(f"- **Destroy**: {len(destroyed)} resources")
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate a Markdown table summary from a Terraform/Tofu plan.")
+    parser.add_argument("--input", "-i", required=True, help="Path to the input tfplan file")
+    parser.add_argument("--output", "-o", default="tfplan_summary.md", help="Path to output markdown file")
+    args = parser.parse_args()
 
-# Salva
-with open(args.output, "w") as f:
-    f.write("\n".join(lines))
-
-print(f"✅ Markdown summary saved to: {args.output}")
+    generate_markdown(args.input, args.output)
