@@ -1,66 +1,58 @@
 import re
 import argparse
 
-# Argument parser
-parser = argparse.ArgumentParser(description="Generate a summary from a Terraform plan.")
-parser.add_argument("--input", "-i", required=True, help="Path to the input tfplan.txt file")
-parser.add_argument("--output", "-o", default="tfplan_summary.md", help="Path to save the output markdown file")
+parser = argparse.ArgumentParser(description="Generate a Markdown table summary from a Terraform/Tofu plan.")
+parser.add_argument("--input", "-i", required=True, help="Path to the input tfplan file")
+parser.add_argument("--output", "-o", default="tfplan_summary.md", help="Path to output markdown file")
 args = parser.parse_args()
 
-# Read input file
 with open(args.input, "r") as f:
-    plan_text = f.read()
+    content = f.read()
 
-# Count actions
-to_create = len(re.findall(r'will be created', plan_text))
-to_update = len(re.findall(r'will be updated in-place', plan_text))
-to_destroy = len(re.findall(r'will be destroyed', plan_text))
-
-# Extract created resources
-create_blocks = re.findall(r'# (.*?) will be created\n\s+\+ resource .*?{.*?^\s+}', plan_text, flags=re.DOTALL | re.MULTILINE)
-created_resources = [line.strip().split(" ")[0] for line in create_blocks]
-
-# Extract updated resources with tag changes
-update_blocks = re.findall(
-    r'# (.*?) will be updated in-place\s+~ resource "(.*?)" "(.*?)" {(.*?)~ tags\s+= {(.*?)} -> \(known after apply\)',
-    plan_text, flags=re.DOTALL
-)
-
-# Build markdown summary
 lines = []
 
-lines.append(f"## ✅ Resources to be *created* ({to_create})\n")
-for res in created_resources:
-    if "data_collection_endpoint" in res:
-        lines.append(f"- **{res.split('.')[1]}** – Data Collection Endpoint")
-    elif "data_collection_rule" in res:
-        lines.append(f"- **{res.split('.')[1]}** – Data Collection Rule")
-lines.append("")
+def extract_blocks(symbol):
+    return re.findall(rf'{re.escape(symbol)} resource "([^"]+)" "([^"]+)" {{(.*?)^  }}', content, flags=re.DOTALL | re.MULTILINE)
 
-lines.append(f"## 🔁 Resources to be *updated* ({to_update})\n")
-if update_blocks:
-    for full_id, res_type, res_name, block_text, tag_block in update_blocks:
-        lines.append(f"- **{res_name}** – {res_type.replace('_', ' ').title()}")
-        tag_lines = tag_block.strip().split('\n')
-        if tag_lines:
-            lines.append(f"  - Tags to be removed:")
-            for tag in tag_lines:
-                tag_clean = tag.strip().lstrip('-').strip()
-                if tag_clean:
-                    lines.append(f"    - `{tag_clean}`")
-else:
-    lines.append("No specific tag changes found.")
-lines.append("")
+def parse_resource_block(res_type, res_name, block):
+    name_match = re.search(r'\+ name\s+=\s+"([^"]+)"', block)
+    rg_match = re.search(r'\+ resource_group_name\s+=\s+"([^"]+)"', block)
+    loc_match = re.search(r'\+ location\s+=\s+"([^"]+)"', block)
 
-lines.append(f"## ❌ Resources to be *destroyed* ({to_destroy})\n")
-lines.append("None.\n" if to_destroy == 0 else "Some resources will be destroyed.\n")
+    name = name_match.group(1) if name_match else res_name
+    rg = rg_match.group(1) if rg_match else "-"
+    location = loc_match.group(1) if loc_match else "-"
+    return name, res_type, rg, location
 
+def write_table(title, blocks, symbol_emoji):
+    lines.append(f"## {symbol_emoji} Resources to be *{title}* ({len(blocks)} total)\n")
+    lines.append("| Resource Name | Type | Resource Group | Location |")
+    lines.append("|---------------|------|----------------|----------|")
+    for res_type, res_name, block in blocks:
+        name, res_type_clean, rg, location = parse_resource_block(res_type, res_name, block)
+        lines.append(f"| `{name}` | `{res_type_clean}` | `{rg}` | `{location}` |")
+    lines.append("")
+
+# Blocos
+created = extract_blocks("+")
+updated = extract_blocks("~")
+destroyed = extract_blocks("-")
+
+# Tabelas
+if created:
+    write_table("created", created, "✅")
+if updated:
+    write_table("updated", updated, "🔁")
+if destroyed:
+    write_table("destroyed", destroyed, "❌")
+
+# Sumário final
 lines.append("## 📊 Summary")
-lines.append(f"- **Create**: {to_create} resources")
-lines.append(f"- **Update**: {to_update} resources")
-lines.append(f"- **Destroy**: {to_destroy} resources")
+lines.append(f"- **Create**: {len(created)} resources")
+lines.append(f"- **Update**: {len(updated)} resources")
+lines.append(f"- **Destroy**: {len(destroyed)} resources")
 
-# Write markdown file
+# Salva
 with open(args.output, "w") as f:
     f.write("\n".join(lines))
 
